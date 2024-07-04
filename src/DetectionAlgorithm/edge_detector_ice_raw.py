@@ -382,13 +382,13 @@ def identification_ice_ow(low, high, kernel, DataDirectory, MasksDirectory, Savi
     optmisation step.
     
     Inputs:
-        low (float) lower threshold for the canny edge detection (int)
-        high (float): higher threshold for the canny edge detection (int)
-        kernel (tuple of int): kernel used for the find contours
-        DataDirectory (str): Directory where the frames are
-        MasksDirectory (str): Directory where the masks are
-        SavingDirectory (str): Directory where to save the data
-        plotting (Bool): usually set to False, but it the contours need to be plotted, set to True
+        low: lower threshold for the canny edge detection (int)
+        high: higher threshold for the canny edge detection (int)
+        kernel: kernel used for the find contours
+        DataDirectory: Directory where the frames are
+        MasksDirectory: Directory where the masks are
+        SavingDirectory: Directory where to save the data
+        plotting: usually set to False, but it the contours need to be plotted, set to True
         
         
     """
@@ -396,26 +396,21 @@ def identification_ice_ow(low, high, kernel, DataDirectory, MasksDirectory, Savi
     #Loading the different parameters
 
     print('Reading Mask')
-    land_mask = np.load('../../data/land_mask_radar.npy', allow_pickle=True).item()['mask']
+    land_mask = np.load('../data/land_mask_radar.npy', allow_pickle=True).item()['mask']
     
     #----- Computing the area of the reference frame for the sea ice concentration -----#
-    #      Not using the optimimal parameters because we just want the whole contour.   #
-    
-    
     print('Calulating the total area of the radar range')
 
-    img_tot_area = '../../data/UAFIceRadar_20220219_014400_crop_geo.tif'
+    img_tot_area = '../data/UAFIceRadar_20220219_014400_crop_geo.tif'
 
     img = vid.read_img(img_tot_area)
     
     edges_first_img, gray_list = canny_edge_opencv([img], 0, 1, land_mask, False)
 
     contours_first, poly_area_first = find_contours(edges_first_img, (7,7))
-    _, checked_area_list = check_inside_contours(contours_first, poly_area_first)
-    total_area_radar = np.amax(checked_area_list) #reference area for the whole radar field of view
+    checked_contours_first, checked_area_list = check_inside_contours(contours_first, poly_area_first)
+    total_area_radar = np.amax(checked_area_list)
 
-    #looping through all of the data 
-    
     #loop through the years
     for YearDir in os.listdir(DataDirectory) : 
         YearDir = str(YearDir)
@@ -434,14 +429,13 @@ def identification_ice_ow(low, high, kernel, DataDirectory, MasksDirectory, Savi
                 except FileExistsError:
                     print("Folder exists")
                 
-                # reading the images for the day
+                # #reading the images
                 img_list_day = vid.extract_img_folder(DataDirectory+YearDir+'/'+MonthDir+'/'+DayDir)
-
-                #---- Removing unwanted images ----#
+                # img_list_day = vid.extract_img_folder('/storage/fstdenis/Barrow_RADAR/RAW_Data/2023/02/20230209/')
+                
+                
                 i = 0
                 idx_remove = []
-                
-                #if the shape is not good, remove
                 for img in img_list_day:
                     shape = img.shape
                     
@@ -449,11 +443,10 @@ def identification_ice_ow(low, high, kernel, DataDirectory, MasksDirectory, Savi
                         idx_remove.append(i)
                     i+=1
                 if len(idx_remove) > 0:
-                    #deleting the not good images
+                    
                     img_list_day = np.delete(img_list_day, idx_remove)
                     
                 if len(img_list_day) == 0 :
-                    #saving nothing if no images for this day just for the sake of the code
                     polygon_list_time = []
                     gray_list = []
                     concentration_ice = [np.nan]
@@ -502,8 +495,8 @@ def identification_edges_group(ImgDir, plotting) :
     that it takes the red part on every frame. 
 
     Inputs: 
-        VidDir_Cont (str): Location of the analysts video
-        plotting (bool): set to true for plotting
+        VidDir_Cont: Location of the analysts video
+        plotting: set to true for plotting
         
     Returns:
         _type_: _description_
@@ -517,17 +510,17 @@ def identification_edges_group(ImgDir, plotting) :
     concentration_analysers = []
     
     for num_analyst in sorted(os.listdir(ImgDir)):
- 
+        print(ImgDir+num_analyst)
         #reading the video with the analyst frames.
         img_list_contours = vid.extract_imgs(ImgDir+num_analyst)
-
+        print(img_list_contours)
         #initializing the lists
         it = 0
         polygons_area_analysers = []
         #loop to extract the drawed contours
         for img in img_list_contours : 
             print('Img : ', it)
-
+            print(img.shape)
             test_image1 = cv.cvtColor(img, cv.COLOR_BGR2HSV) #converting to hsv
             test_image2 = cv.inRange(test_image1, lower_red, upper_red) #taking only the red parts
 
@@ -547,7 +540,6 @@ def identification_edges_group(ImgDir, plotting) :
             polygons_area_analysers.append(polygon_area_vid_check[0])
 
             it += 1
-        
         if num_analyst == '0':
             #loop to calculate the SIC
             tot_area = polygons_area_analysers[0][0]
@@ -589,15 +581,19 @@ def optimizing_RadAnalysts(Concentration_analysts, kernel, num_analysts, step_op
     img_list_1 = vid.extract_imgs(File)
     
     print('Reading Mask')
-    land_mask = np.load('../../data/land_mask_radar.npy', allow_pickle=True).item()['mask']
+    land_mask = np.load(MasksDirectory+'land_mask_3.npy', allow_pickle=True).item()['mask']
+    print(img_list_1)
     
     print('Computing the Total area')
-    edges_first_img, _ = canny_edge_opencv([img_list_1[0]], 0, 1, land_mask, False)
+    edges_first_img, gray_list = canny_edge_opencv([img_list_1[0]], 0, 1, land_mask, False)
 
     contours_first, poly_area_first = find_contours(edges_first_img, kernel)
-    _, checked_area_list = check_inside_contours(contours_first, poly_area_first)
+    checked_contours_first, checked_area_list = check_inside_contours(contours_first, poly_area_first)
     total_area_radar = np.amax(checked_area_list)
-
+    # for poly in checked_contours_first[0] : 
+    #     plt.plot(*poly.exterior.xy, color = 'g')
+    # plt.savefig(f'./test.png', dpi = 500)
+    # plt.close()
     
     #---- Setting the parameters range ----#
     low_optimize = np.arange(0, 126, step_opt)
@@ -624,7 +620,9 @@ def optimizing_RadAnalysts(Concentration_analysts, kernel, num_analysts, step_op
     for low in low_optimize : 
         for high in high_optimize : 
             print('Kernel, threshold:', kernel, low, high)
-
+            low = 38
+            high = 82
+            kernel = (13, 13)
 
             #computing the concentrations
             concentration_ice = detection_only(img_list_1, low, high, kernel, \
@@ -676,30 +674,26 @@ def optimizing_RadAnalysts(Concentration_analysts, kernel, num_analysts, step_op
             mbe_linreg_elim, slope_intercept0_total, slope_intercept0_elim, concentration_ice_total, iterations
 
 def detection_only(img_list, low, high, kernel, tot_area_radar, land_mask) : 
-    """
-    This function is only made up of the detection algorithm. It is used in the optimizing with the analysts.
-
-    Args:
-        img_list (_type_): _description_
-        low (_type_): _description_
-        high (_type_): _description_
-        kernel (_type_): _description_
-        tot_area_radar (_type_): _description_
-        land_mask (_type_): _description_
-
-    Returns:
-        _type_: _description_
-    """
     
+    # print('\n', 'Starting Canny edge algorithm')
+    start_time =  time.time()
+    edge_list_cv, gray_list = canny_edge_opencv(img_list, low, high, land_mask)
+    # print('Time for canny with OpenCV : ', time.time() - start_time)
 
-    edge_list_cv, _ = canny_edge_opencv(img_list, low, high, land_mask)
-
+    # print('\n', 'Finding the contours')
+    start_time = time.time()
     polygon_list_time_1, polygon_area_vid = find_contours(edge_list_cv, kernel)
-
-    _, poly_area_time\
+    # print('Time for finding contours : ', time.time() - start_time)
+    
+    
+    # print('Removing contours : ')
+    start_time =  time.time()
+    polygon_list_time, poly_area_time\
         = check_inside_contours(polygon_list_time_1, polygon_area_vid)
-
-    _, _, concentration_ice, _ \
+    # print('Time for canny with OpenCV : ', time.time() - start_time)
+    
+    # print('Calculating the Concentration')
+    tot_area_vid_ice, tot_area_vid_ow, concentration_ice, concentration_ow \
         = find_polygon_area(poly_area_time, tot_area_radar)
         
     # plr.plot_edge_finding(gray_list, polygon_list_time, 0, './')
@@ -733,16 +727,6 @@ def min_value_kernel(Parameters_list, idx_min_list) :
 
 @jit(nopython=True)
 def is_inside_sm(polygon, point):
-    """
-    This function is used to find points that are inside polygons. taken from https://github.com/sasamil/PointInPolygon_Py. 
-
-    Args:
-        polygon (_type_): _description_
-        point (_type_): _description_
-
-    Returns:
-        _type_: _description_
-    """
     length = len(polygon)-1
     dy2 = point[1] - polygon[0][1]
     intersections = 0
@@ -779,7 +763,7 @@ def is_inside_sm(polygon, point):
 def is_inside_sm_parallel(points, polygon):
     """
     This function is used to go trough a list of points and test if wether the points 
-    are inside or not of the specified polygon. Taken from https://stackoverflow.com/questions/36399381/whats-the-fastest-way-of-checking-if-a-point-is-inside-a-polygon-in-python. 
+    are inside or not of the specified polygon. 
     
     This function uses the 
 
@@ -801,19 +785,6 @@ def is_inside_sm_parallel(points, polygon):
     return is_inside
 
 def identify_ice_images(img, polygon_list_time, points_ocean, idx_ocean, shape_img = (900,900)):
-    """
-    This function is used to produce a binary image from the contours where 0 are OW and 1 are sea ice.
-
-    Args:
-        img (_type_): _description_
-        polygon_list_time (_type_): _description_
-        points_ocean (_type_): _description_
-        idx_ocean (_type_): _description_
-        shape_img (tuple, optional): _description_. Defaults to (900,900).
-
-    Returns:
-        _type_: _description_
-    """
                         
     polygon_list_img = polygon_list_time[img]
     #! here changed to nan
@@ -834,20 +805,6 @@ def identify_ice_images(img, polygon_list_time, points_ocean, idx_ocean, shape_i
 
 @njit()
 def coarse_grain(ice_img, window_size, latitude_radar, longitude_radar, shape_img = (900, 900)):
-    """
-    This function is used to make a coarse grain estimate of the sea ice concentration from the binary 
-    mask made with identify_ice_images(). 
-
-    Args:
-        ice_img (_type_): _description_
-        window_size (_type_): _description_
-        latitude_radar (_type_): _description_
-        longitude_radar (_type_): _description_
-        shape_img (tuple, optional): _description_. Defaults to (900, 900).
-
-    Returns:
-        _type_: _description_
-    """
     
     number_window_i = shape_img[0]//window_size
     number_window_j = shape_img[1]//window_size
